@@ -28,6 +28,9 @@ module Fluent
     config_param :jmx_attribute, :string, :default => nil
     config_param :jmx_path, :string, :default => nil
     config_param :run_interval, :time
+    config_param :timeout, :time, :default => nil
+    config_param :continue_on_timeout, :bool, :default => false
+    config_param :continue_on_error, :bool, :default => false
     config_param :add_jolokia_url, :bool, :default => false
 
     def initialize
@@ -82,14 +85,18 @@ module Fluent
       opt[:attribute] = attribute if attribute
       opt[:path]      = path if path
 
-      resp = HTTParty.post(@jolokia_url, :body => JSON.generate(opt))
-      data = JSON.parse(resp.body)
-
-      if data
-        return data
+      begin
+        resp = HTTParty.post(@jolokia_url, :body => JSON.generate(opt), :timeout => @timeout)
+      rescue Timeout::Error => ex
+        $log.error ex
+        raise unless @continue_on_timeout
+      rescue Exception => ex
+        $log.error ex
+        raise unless @continue_on_error
       end
 
-      return nil
+      data = JSON.parse(resp.body) if resp
+      data if data
     end
   end    
 end
