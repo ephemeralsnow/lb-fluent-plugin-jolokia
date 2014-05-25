@@ -22,6 +22,11 @@ module Fluent
   class JolokiaInput < Input
     Plugin.register_input('jolokia',self)
 
+    # To support log_level option implemented by Fluentd v0.10.43
+    unless method_defined?(:log)
+      define_method('log') { $log }
+    end
+
     config_param :tag, :string, :default => nil
     config_param :jolokia_url, :string
     config_param :jmx_bean, :string
@@ -88,10 +93,10 @@ module Fluent
       begin
         resp = HTTParty.post(@jolokia_url, :body => JSON.generate(opt), :timeout => @timeout)
       rescue Timeout::Error => ex
-        $log.error ex
+        log.error ex
         raise unless @continue_on_timeout
       rescue Exception => ex
-        $log.error ex
+        log.error ex
         raise unless @continue_on_error
       end
 
